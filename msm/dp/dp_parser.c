@@ -9,6 +9,8 @@
 #include "dp_parser.h"
 #include "dp_debug.h"
 
+struct dp_parser *asus_parser;
+
 static void dp_parser_unmap_io_resources(struct dp_parser *parser)
 {
 	int i = 0;
@@ -250,7 +252,7 @@ static int dp_parser_gpio(struct dp_parser *parser)
 	static const char * const dp_gpios[] = {
 		"qcom,aux-en-gpio",
 		"qcom,aux-sel-gpio",
-		"qcom,usbplug-cc-gpio",
+		// "qcom,usbplug-cc-gpio", /* ASUS BSP Display +++ */
 	};
 
 	if (of_find_property(of_node, "qcom,dp-hpd-gpio", NULL)) {
@@ -262,6 +264,7 @@ static int dp_parser_gpio(struct dp_parser *parser)
 
 	if (of_find_property(of_node, "qcom,dp-gpio-aux-switch", NULL))
 		parser->gpio_aux_switch = true;
+
 	mp->gpio_config = devm_kzalloc(dev,
 		sizeof(struct dss_gpio) * ARRAY_SIZE(dp_gpios), GFP_KERNEL);
 	if (!mp->gpio_config)
@@ -274,19 +277,21 @@ static int dp_parser_gpio(struct dp_parser *parser)
 			dp_gpios[i], 0);
 
 		if (!gpio_is_valid(mp->gpio_config[i].gpio)) {
-			DP_DEBUG("%s gpio not specified\n", dp_gpios[i]);
+			pr_err("[DP] %s gpio not specified\n", dp_gpios[i]);
 			/* In case any gpio was not specified, we think gpio
 			 * aux switch also was not specified.
 			 */
 			parser->gpio_aux_switch = false;
 			continue;
 		}
+		pr_err("[DP] of %s = %d parsed\n", dp_gpios[i], mp->gpio_config[i].gpio);
 
 		strlcpy(mp->gpio_config[i].gpio_name, dp_gpios[i],
 			sizeof(mp->gpio_config[i].gpio_name));
 
 		mp->gpio_config[i].value = 0;
 	}
+	pr_err("[DP] dp gpio parse done");
 
 	return 0;
 }
@@ -923,6 +928,8 @@ struct dp_parser *dp_parser_get(struct platform_device *pdev)
 	parser->get_io_buf = dp_parser_get_io_buf;
 	parser->clear_io_buf = dp_parser_clear_io_buf;
 	parser->pdev = pdev;
+
+	asus_parser = parser;
 
 	return parser;
 }

@@ -70,6 +70,36 @@ enum dp_display_states {
 	DP_STATE_TUI_ACTIVE             = BIT(11),
 };
 
+// for skip hdcp on unlock device
+#if 0
+char verified_boot_state[20];
+char unlock[2];
+static int __init verified_boot_state_param(char *line)
+{
+	strlcpy(verified_boot_state, line, sizeof(verified_boot_state));
+	return 1;
+}
+__setup("androidboot.verifiedbootstate=", verified_boot_state_param);
+
+static int __init unlock_param(char *line)
+{
+	strlcpy(unlock, line, sizeof(unlock));
+	return 1;
+}
+__setup("UNLOCKED", unlock_param);
+
+static bool is_unlock(void)
+{
+	static const char unlock_state[] = "orange";
+	static const char unlock_param[] = "Y";
+
+	return (!strncmp(verified_boot_state, unlock_state, sizeof(unlock_state))
+		|| !strncmp(unlock, unlock_param, sizeof(unlock_param)));
+}
+#else
+static bool is_unlock(void) { return false; }
+#endif
+
 static char *dp_display_state_name(enum dp_display_states state)
 {
 	static char buf[SZ_1K];
@@ -1250,6 +1280,9 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 
 	rc = dp->panel->read_sink_caps(dp->panel,
 			dp->dp_display.base_connector, dp->hpd->multi_func);
+
+	dp->debug->aux_err = true;
+
 	/*
 	 * ETIMEDOUT --> cable may have been removed
 	 * ENOTCONN --> no downstream device connected
@@ -1368,6 +1401,8 @@ static int dp_display_process_hpd_low(struct dp_display_private *dp)
 
 	dp->panel->video_test = false;
 
+	dp->debug->aux_err = false;
+
 	return rc;
 }
 
@@ -1383,6 +1418,8 @@ static int dp_display_init_aux_switch(struct dp_display_private *dp)
 	struct notifier_block nb;
 	const u32 max_retries = 50;
 	u32 retry;
+
+	return rc;
 
 	if (dp->aux_switch_ready)
 	       return rc;
@@ -2182,6 +2219,11 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	dp->cached_connector_status = connector_status_disconnected;
 	dp->tot_dsc_blks_in_use = 0;
 
+	if (is_unlock()) {
+		DP_LOG("Disable HDCP on unlock device");
+		hdcp_disabled = 1;
+	}
+
 	dp->debug->hdcp_disabled = hdcp_disabled;
 	dp_display_update_hdcp_status(dp, true);
 
@@ -2974,6 +3016,9 @@ static enum drm_mode_status dp_display_validate_mode(
 
 	rc = dp_display_validate_pixel_clock(dp_mode, dp_display->max_pclk_khz);
 	if (rc)
+		goto end;
+
+	if (!dp_asus_validate_mode(dp_panel, mode))
 		goto end;
 
 	mode_status = MODE_OK;
