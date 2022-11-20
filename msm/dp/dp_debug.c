@@ -2008,7 +2008,7 @@ static ssize_t dp_swing_debug_enable_write(struct file *file,
 		goto end;
 
 	debug->dp_debug.swing_dbg_en = swing_dbg_en;
-	DP_LOG("swing_dbg_en = %d\n", debug->dp_debug.swing_dbg_en);
+	DP_DEBUG("swing_dbg_en = %d\n", debug->dp_debug.swing_dbg_en);
 
 end:
 	return len;
@@ -2068,7 +2068,7 @@ static ssize_t dp_pre_emp_debug_enable_write(struct file *file,
 		goto end;
 
 	debug->dp_debug.pre_emp_dbg_en = pre_emp_dbg_en;
-	DP_LOG("pre_emp_dbg_en = %d\n", debug->dp_debug.pre_emp_dbg_en);
+	DP_DEBUG("pre_emp_dbg_en = %d\n", debug->dp_debug.pre_emp_dbg_en);
 
 end:
 	return len;
@@ -2128,7 +2128,7 @@ static ssize_t dp_pre_emp_108_debug_enable_write(struct file *file,
 		goto end;
 
 	debug->dp_debug.pre_emp_108_dbg_en = pre_emp_108_dbg_en;
-	DP_LOG("pre_emp_108_dbg_en = %d\n", debug->dp_debug.pre_emp_108_dbg_en);
+	DP_DEBUG("pre_emp_108_dbg_en = %d\n", debug->dp_debug.pre_emp_108_dbg_en);
 
 end:
 	return len;
@@ -2197,14 +2197,14 @@ static ssize_t dp_pre_emp_array_write(struct file *file,
 
 	// must is equal to array size
 	if(cnt != array_size) {
-		DP_LOG("%d is not equal to 16.\n", cnt);
+		DP_DEBUG("%d is not equal to 16.\n", cnt);
 		goto end;
 	}
 
 	cnt = 0;
 	for(i = 0; i < 4; i++) {
 		for (j = 0; j < 4; j++) {
-			DP_LOG("[%d][%d] change from 0x%x to 0x%x\n",
+			DP_DEBUG("[%d][%d] change from 0x%x to 0x%x\n",
 				   i, j, dp_asus_pre_emp[i][j], element_arr[cnt]);
 			dp_asus_pre_emp[i][j] = element_arr[cnt] & 0xff;
 			cnt++;
@@ -2274,21 +2274,21 @@ static ssize_t dp_swing_array_write(struct file *file,
 		if (element_len > 2 || element_len < 1)
 			goto end;
 
-		//DP_LOG("element = %s +++\n", element);
+		//DP_DEBUG("element = %s +++\n", element);
 		sscanf(element, "%x", &(element_arr[cnt]));
 		cnt++;
 	}
 
 	// must is equal to array size
 	if(cnt != array_size) {
-		DP_LOG("%d is not equal to 16.\n", cnt);
+		DP_DEBUG("%d is not equal to 16.\n", cnt);
 		goto end;
 	}
 
 	cnt = 0;
 	for(i = 0; i < 4; i++) {
 		for (j = 0; j < 4; j++) {
-			DP_LOG("[%d][%d] change from 0x%x to 0x%x\n",
+			DP_DEBUG("[%d][%d] change from 0x%x to 0x%x\n",
 				   i, j, dp_asus_swing[i][j], element_arr[cnt]);
 			dp_asus_swing[i][j] = element_arr[cnt] & 0xff;
 			cnt++;
@@ -2365,14 +2365,14 @@ static ssize_t dp_pre_emp_108_array_write(struct file *file,
 
 	// must is equal to array size
 	if(cnt != array_size) {
-		DP_LOG("%d is not equal to 16.\n", cnt);
+		DP_DEBUG("%d is not equal to 16.\n", cnt);
 		goto end;
 	}
 
 	cnt = 0;
 	for(i = 0; i < 4; i++) {
 		for (j = 0; j < 4; j++) {
-			DP_LOG("[%d][%d] change from 0x%x to 0x%x\n",
+			DP_DEBUG("[%d][%d] change from 0x%x to 0x%x\n",
 				   i, j, dp_asus_pre_emp_108[i][j], element_arr[cnt]);
 			dp_asus_pre_emp_108[i][j] = element_arr[cnt] & 0xff;
 			cnt++;
