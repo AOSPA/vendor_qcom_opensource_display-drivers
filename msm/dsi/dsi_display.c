@@ -420,7 +420,7 @@ static irqreturn_t dsi_display_panel_te_irq_handler(int irq, void *data)
 	static int shoot = 0;
 	shoot ++;
 	if ((shoot % 60) == 1){
-		printk("[Display] dsi_display_panel_te_irq_handler (%d)",shoot);
+		pr_debug("[Display] dsi_display_panel_te_irq_handler (%d)",shoot);
 	}
 #endif
 

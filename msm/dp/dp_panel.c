@@ -1619,7 +1619,7 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel, bool multi_func)
 		rlen = drm_dp_dpcd_read(drm_aux, DP_TRAINING_AUX_RD_INTERVAL, &temp, 1);
 		if (rlen != 1) {
 			if (dpcd_retry > 1) {
-				DP_LOG("retry reading DP_TRAINING_AUX_RD_INTERVAL\n");
+				DP_DEBUG("retry reading DP_TRAINING_AUX_RD_INTERVAL\n");
 				mdelay(70);
 			} else {
 				DP_ERR("error reading DP_TRAINING_AUX_RD_INTERVAL\n");
@@ -3222,7 +3222,7 @@ bool dp_asus_validate_mode(struct dp_panel *dp_panel,
 	bool status = false;
 
 	if (!dp_panel || !mode) {
-		DP_LOG("invalid params\n");
+		DP_DEBUG("invalid params\n");
 		return status;
 	}
 
@@ -3258,13 +3258,13 @@ void dp_asus_extract_id(struct dp_panel *dp_panel)
 	struct edid *edid;
 
 	if (!dp_panel || !dp_panel->edid_ctrl) {
-		DP_LOG("invalid input\n");
+		DP_DEBUG("invalid input\n");
 		return;
 	}
 
 	edid = dp_panel->edid_ctrl->edid;
 	if (!edid) {
-		DP_LOG("invalid parameter\n");
+		DP_DEBUG("invalid parameter\n");
 		return;
 	}
 
@@ -3272,7 +3272,7 @@ void dp_asus_extract_id(struct dp_panel *dp_panel)
 			(edid->prod_code[0] >> 4);
 	dp_panel->asus_vendor = dp_panel->edid_ctrl->vendor_id;
 
-	DP_LOG("vendor_id=%s, proc_codes(product id)=0x%x\n",
+	DP_DEBUG("vendor_id=%s, proc_codes(product id)=0x%x\n",
 		   dp_panel->asus_vendor, dp_panel->asus_proc_codes);
 }
 /* ASUS BSP Display --- */
