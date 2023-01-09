@@ -223,7 +223,7 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 	}
 
 	/* ASUS BSP Display +++ */
-	DSI_LOG("display on +++\n");
+	DSI_DEBUG("display on +++\n");
 	SDE_ATRACE_BEGIN("dsi_display_prepare");
 	rc = dsi_display_prepare(c_bridge->display);
 	if (rc) {
@@ -249,7 +249,7 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 									rc);
 
 	/* ASUS BSP Display +++ */
-	DSI_LOG("display on ---\n");
+	DSI_DEBUG("display on ---\n");
 }
 
 static void dsi_bridge_enable(struct drm_bridge *bridge)
@@ -337,7 +337,7 @@ static void dsi_bridge_post_disable(struct drm_bridge *bridge)
 	}
 
 	/* ASUS BSP Display +++ */
-	DSI_LOG("display off +++\n");
+	DSI_DEBUG("display off +++\n");
 
 	display = c_bridge->display;
 
@@ -365,7 +365,7 @@ static void dsi_bridge_post_disable(struct drm_bridge *bridge)
 	SDE_ATRACE_END("dsi_bridge_post_disable");
 
 	/* ASUS BSP Display +++ */
-	DSI_LOG("display off ---\n");
+	DSI_DEBUG("display off ---\n");
 }
 
 static void dsi_bridge_mode_set(struct drm_bridge *bridge,
