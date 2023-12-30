@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
@@ -955,6 +955,7 @@ static int dsi_display_status_check_te(struct dsi_display *display,
 			ai2201_set_err_fg_irq_state(true);
 #endif
 			dsi_display_change_te_irq_status(display, false);
+			dsi_display_release_te_irq(display);
 			return -EINVAL;
 		}
 	}
@@ -976,6 +977,18 @@ void dsi_display_toggle_error_interrupt_status(struct dsi_display * display, boo
 		ctrl = &display->ctrl[i];
 		if (!ctrl->ctrl)
 			continue;
+
+		/*
+		 * Make sure not to toggle error status and error interrupts
+		 * while a command transfer is going on.
+		 */
+
+		if (ctrl->ctrl->post_tx_queued) {
+			flush_workqueue(display->post_cmd_tx_workq);
+			cancel_work_sync(&ctrl->ctrl->post_cmd_tx_work);
+			ctrl->ctrl->post_tx_queued = false;
+		}
+
 		dsi_ctrl_toggle_error_interrupt_status(ctrl->ctrl, enable);
 	}
 }
@@ -2194,7 +2207,7 @@ static void adjust_timing_by_ctrl_count(const struct dsi_display *display,
 	} else {
 		if (mode->priv_info->dsc_enabled)
 			mode->priv_info->dsc.config.pic_width =
-				mode->timing.h_active;
+				mode->timing.h_active / mode->priv_info->dsc.dsc_pic_width_slice;
 		mode->timing.h_active /= display->ctrl_count;
 		mode->timing.h_front_porch /= display->ctrl_count;
 		mode->timing.h_sync_width /= display->ctrl_count;
@@ -3631,6 +3644,16 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 		dsi_clock_name = "qcom,dsi-select-sec-clocks";
 
 	num_clk = dsi_display_get_clocks_count(display, dsi_clock_name);
+
+	if (num_clk <= 0) {
+		pll->byte_clk = NULL;
+		pll->pixel_clk = NULL;
+		rc = num_clk;
+		DSI_WARN("failed to read %s, rc = %d\n", dsi_clock_name, rc);
+		goto error;
+	}
+
+	DSI_DEBUG("clk count=%d\n", num_clk);
 
 	for (i = 0; i < num_clk; i++) {
 		dsi_display_get_clock_name(display, dsi_clock_name, i,

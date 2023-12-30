@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
@@ -30,7 +30,7 @@
 #define DSI_CMD_PPS_SIZE 135
 
 #define DSI_CMD_PPS_HDR_SIZE 7
-#define DSI_MODE_MAX 32
+#define DSI_MODE_MAX 64
 
 #define DSI_IS_FSC_PANEL(fsc_rgb_order) \
 		(((!strcmp(fsc_rgb_order, "fsc_rgb")) || \
@@ -64,6 +64,7 @@ enum dsi_backlight_type {
 	DSI_BACKLIGHT_WLED,
 	DSI_BACKLIGHT_DCS,
 	DSI_BACKLIGHT_EXTERNAL,
+	DSI_BACKLIGHT_I2C,
 	DSI_BACKLIGHT_UNKNOWN,
 	DSI_BACKLIGHT_MAX,
 };
@@ -144,6 +145,7 @@ struct dsi_backlight_config {
 	u32 bl_level;
 	u32 bl_scale;
 	u32 bl_scale_sv;
+	u32 bl_dcs_subtype;
 	bool bl_inverted_dbv;
 	/* digital dimming backlight LUT */
 	struct drm_msm_dimming_bl_lut *dimming_bl_lut;
@@ -231,6 +233,8 @@ struct dsi_panel {
 	const char *type;
 	struct device_node *panel_of_node;
 	struct mipi_dsi_device mipi_device;
+	struct device_node *rgb_left_led_node;
+	struct device_node *rgb_right_led_node;
 
 	struct mutex panel_lock;
 	struct drm_panel drm_panel;

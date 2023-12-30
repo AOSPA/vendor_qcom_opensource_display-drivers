@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
@@ -73,6 +73,10 @@ static const struct drm_prop_enum_list e_dsc_mode[] = {
 	{MSM_DISPLAY_DSC_MODE_NONE, "none"},
 	{MSM_DISPLAY_DSC_MODE_ENABLED, "dsc_enabled"},
 	{MSM_DISPLAY_DSC_MODE_DISABLED, "dsc_disabled"},
+};
+static const struct drm_prop_enum_list e_wb_fsc_mode[] = {
+	{MSM_WB_FSC_MODE_DISABLED, "fsc_disabled"},
+	{MSM_WB_FSC_MODE_ENABLED, "fsc_enabled"},
 };
 static const struct drm_prop_enum_list e_frame_trigger_mode[] = {
 	{FRAME_DONE_WAIT_DEFAULT, "default"},
@@ -1129,7 +1133,7 @@ void sde_connector_helper_bridge_disable(struct drm_connector *connector)
 	/* Disable ESD thread */
 	sde_connector_schedule_status_work(connector, false);
 
-	if (!sde_in_trusted_vm(sde_kms) && c_conn->bl_device) {
+	if (!sde_in_trusted_vm(sde_kms) && c_conn->bl_device && !poms_pending) {
 		c_conn->bl_device->props.power = FB_BLANK_POWERDOWN;
 		c_conn->bl_device->props.state |= BL_CORE_FBBLANK;
 		backlight_update_status(c_conn->bl_device);
@@ -1173,7 +1177,7 @@ void sde_connector_helper_bridge_enable(struct drm_connector *connector)
 				MSM_ENC_TX_COMPLETE);
 	c_conn->allow_bl_update = true;
 
-	if (!sde_in_trusted_vm(sde_kms) && c_conn->bl_device) {
+	if (!sde_in_trusted_vm(sde_kms) && c_conn->bl_device && !display->poms_pending) {
 		c_conn->bl_device->props.power = FB_BLANK_UNBLANK;
 		c_conn->bl_device->props.state &= ~BL_CORE_FBBLANK;
 #if defined ASUS_AI2201_PROJECT
@@ -2780,7 +2784,7 @@ static void sde_connector_check_status_work(struct work_struct *work)
 	dev = conn->base.dev->dev;
 
 	if (!conn->ops.check_status || dev->power.is_suspended ||
-			(conn->lp_mode == SDE_MODE_DPMS_OFF)) {
+			(sde_connector_get_lp(&conn->base) == SDE_MODE_DPMS_OFF)) {
 		SDE_DEBUG("dpms mode: %d\n", conn->dpms_mode);
 		mutex_unlock(&conn->lock);
 		return;
@@ -3176,7 +3180,10 @@ static int _sde_connector_install_properties(struct drm_device *dev,
 			0, 0, e_power_mode,
 			ARRAY_SIZE(e_power_mode), 0,
 			CONNECTOR_PROP_LP);
-
+	if (connector_type == DRM_MODE_CONNECTOR_VIRTUAL)
+		msm_property_install_enum(&c_conn->property_info, "wb_fsc_mode", 0,
+			0, e_wb_fsc_mode, ARRAY_SIZE(e_wb_fsc_mode), 0,
+			CONNECTOR_PROP_WB_FSC_MODE);
 	return 0;
 }
 

@@ -25,8 +25,14 @@ KBUILD_CPPFLAGS += -DASUS_AI2202_PROJECT=1
 endif
 
 ifeq ($(CONFIG_ARCH_NEO), y)
+ifeq ($(CONFIG_TARGET), neo_le)
+	include $(DISPLAY_ROOT)/config/gki_neoledisp.conf
+	LINUX_INC +=	-include $(DISPLAY_ROOT)/config/gki_neoledispconf.h
+endif
+ifeq ($(CONFIG_TARGET), neo_la)
 	include $(DISPLAY_ROOT)/config/gki_neodisp.conf
 	LINUX_INC +=	-include $(DISPLAY_ROOT)/config/gki_neodispconf.h
+endif
 endif
 
 ifeq ($(CONFIG_ARCH_PARROT), y)
@@ -36,6 +42,16 @@ ifeq ($(CONFIG_ARCH_QTI_VM), y)
 else
 	include $(DISPLAY_ROOT)/config/gki_parrotdisp.conf
 	LINUX_INC +=	-include $(DISPLAY_ROOT)/config/gki_parrotdispconf.h
+endif
+endif
+
+ifeq ($(CONFIG_ARCH_RAVELIN), y)
+ifeq ($(CONFIG_ARCH_QTI_VM), y)
+	include $(DISPLAY_ROOT)/config/gki_waipiodisptui.conf
+	LINUX_INC +=	-include $(DISPLAY_ROOT)/config/gki_waipiodisptuiconf.h
+else
+	include $(DISPLAY_ROOT)/config/gki_ravelindisp.conf
+	LINUX_INC +=	-include $(DISPLAY_ROOT)/config/gki_ravelindispconf.h
 endif
 endif
 

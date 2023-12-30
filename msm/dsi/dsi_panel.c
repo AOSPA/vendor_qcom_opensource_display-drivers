@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
@@ -10,6 +10,7 @@
 #include <linux/of_gpio.h>
 #include <linux/pwm.h>
 #include <video/mipi_display.h>
+#include <misc/isl97900_led.h>
 
 #include "dsi_panel.h"
 #include "dsi_ctrl_hw.h"
@@ -614,6 +615,20 @@ static int dsi_panel_wled_register(struct dsi_panel *panel,
 	return 0;
 }
 
+static int mipi_dsi_dcs_subtype_set_display_brightness(struct mipi_dsi_device *dsi,
+	u32 bl_lvl, u32 bl_dcs_subtype)
+{
+	u16 brightness = (u16)bl_lvl;
+	u8 first_byte = brightness & 0xff;
+	u8 second_byte = brightness >> 8;
+	u8 payload[8] = {second_byte, first_byte,
+		second_byte, first_byte,
+		second_byte, first_byte,
+		second_byte, first_byte};
+
+	return mipi_dsi_dcs_write(dsi, bl_dcs_subtype, payload, sizeof(payload));
+}
+
 static int dsi_panel_update_backlight(struct dsi_panel *panel,
 	u32 bl_lvl)
 {
@@ -681,7 +696,12 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 	if (panel->bl_config.bl_inverted_dbv)
 		bl_lvl = (((bl_lvl & 0xff) << 8) | (bl_lvl >> 8));
 
-	rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
+	if (panel->bl_config.bl_dcs_subtype)
+		rc = mipi_dsi_dcs_subtype_set_display_brightness(dsi, bl_lvl,
+						panel->bl_config.bl_dcs_subtype);
+	else
+		rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
+
 	if (rc < 0)
 		DSI_ERR("failed to update dcs backlight:%d\n", bl_lvl);
 
@@ -763,6 +783,15 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 	case DSI_BACKLIGHT_PWM:
 		rc = dsi_panel_update_pwm_backlight(panel, bl_lvl);
 		break;
+	case DSI_BACKLIGHT_I2C:
+		if (panel->rgb_left_led_node)
+			isl97900_led_event(panel->rgb_left_led_node,
+					0, bl_lvl);
+
+		if (panel->rgb_right_led_node)
+			isl97900_led_event(panel->rgb_right_led_node,
+					0, bl_lvl);
+		break;
 	default:
 		DSI_ERR("Backlight type(%d) not supported\n", bl->type);
 		rc = -ENOTSUPP;
@@ -788,6 +817,7 @@ static u32 dsi_panel_get_brightness(struct dsi_backlight_config *bl)
 	case DSI_BACKLIGHT_DCS:
 	case DSI_BACKLIGHT_EXTERNAL:
 	case DSI_BACKLIGHT_PWM:
+	case DSI_BACKLIGHT_I2C:
 	default:
 		/*
 		 * Ideally, we should read the backlight level from the
@@ -853,6 +883,26 @@ static int dsi_panel_parse_fsc_rgb_order(struct dsi_panel *panel,
 	return rc;
 }
 
+static int dsi_panel_parse_rgb_led(struct dsi_panel *panel,
+		struct device_node *of_node)
+{
+	int rc = 0;
+
+	if (!panel || !of_node)
+		return -EINVAL;
+
+	if (panel->bl_config.type != DSI_BACKLIGHT_I2C)
+		return 0;
+
+	panel->rgb_left_led_node = of_parse_phandle(of_node,
+		"qcom,panel-rgb-left-led", 0);
+
+	panel->rgb_right_led_node = of_parse_phandle(of_node,
+		"qcom,panel-rgb-right-led", 0);
+
+	return rc;
+}
+
 static int dsi_panel_bl_register(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -871,6 +921,8 @@ static int dsi_panel_bl_register(struct dsi_panel *panel)
 		break;
 	case DSI_BACKLIGHT_PWM:
 		rc = dsi_panel_pwm_register(panel);
+		break;
+	case DSI_BACKLIGHT_I2C:
 		break;
 	default:
 		DSI_ERR("Backlight type(%d) not supported\n", bl->type);
@@ -906,6 +958,8 @@ static int dsi_panel_bl_unregister(struct dsi_panel *panel)
 		break;
 	case DSI_BACKLIGHT_PWM:
 		dsi_panel_pwm_unregister(panel);
+		break;
+	case DSI_BACKLIGHT_I2C:
 		break;
 	default:
 		DSI_ERR("Backlight type(%d) not supported\n", bl->type);
@@ -2631,6 +2685,8 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 		panel->bl_config.type = DSI_BACKLIGHT_DCS;
 	} else if (!strcmp(bl_type, "bl_ctrl_external")) {
 		panel->bl_config.type = DSI_BACKLIGHT_EXTERNAL;
+	} else if (!strcmp(bl_type, "bl_ctrl_i2c")) {
+		panel->bl_config.type = DSI_BACKLIGHT_I2C;
 	} else {
 		DSI_DEBUG("[%s] bl-pmic-control-type unknown-%s\n",
 			 panel->name, bl_type);
@@ -2681,6 +2737,17 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 		rc = 0;
 	} else {
 		panel->bl_config.brightness_max_level = val;
+	}
+
+	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-bl-ctrl-dcs-subtype",
+		&val);
+	if (rc) {
+		DSI_DEBUG("[%s] bl-ctrl-dcs-subtype, defautling to zero\n",
+			panel->name);
+		panel->bl_config.bl_dcs_subtype = 0;
+		rc = 0;
+	} else {
+		panel->bl_config.bl_dcs_subtype = val;
 	}
 
 	panel->bl_config.bl_inverted_dbv = utils->read_bool(utils->data,
@@ -2861,6 +2928,17 @@ static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
 
 	priv_info->dsc.config.pic_width = mode->timing.h_active;
 	priv_info->dsc.config.pic_height = mode->timing.v_active;
+
+	rc = utils->read_u32(utils->data, "qcom,mdss-dsc-pic-width-slice", &data);
+	if (rc) {
+		DSI_DEBUG("failed to parse qcom,mdss-dsc-pic-width-slice, defaulting to 1\n");
+		rc = 0;
+		data = 1;
+	} else if (!data || (data > 2)) {
+		DSI_ERR("invalid dsc pic-width-slice:%d\n", data);
+		goto error;
+	}
+	priv_info->dsc.dsc_pic_width_slice = data;
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsc-slice-per-pkt", &data);
 	if (rc) {
@@ -3638,6 +3716,8 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel)
 				rc = -EINVAL;
 				goto error;
 			}
+		} else if (!strcmp(string, "esd_sw_sim_success")) {
+			esd_config->status_mode = ESD_MODE_SW_SIM_SUCCESS;
 		} else {
 			DSI_ERR("No valid panel-status-check-mode string\n");
 			rc = -EINVAL;
@@ -3839,6 +3919,10 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	rc = dsi_panel_parse_fsc_rgb_order(panel, utils);
 	if (rc)
 		DSI_DEBUG("failed to read fsc color order, rc=%d\n", rc);
+
+	rc = dsi_panel_parse_rgb_led(panel, of_node);
+	if (rc)
+		DSI_DEBUG("failed to get rgb led info, rc=%d\n", rc);
 
 	rc = dsi_panel_vreg_get(panel);
 	if (rc) {
